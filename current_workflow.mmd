@@ -1,0 +1,114 @@
+flowchart TB
+  %% Order flow: CURRENT STATE
+  %% Solid arrow = automated. Dotted arrow = manual step or handoff.
+
+  subgraph A["1  How orders get into ShipStation and NAV"]
+    direction TB
+
+    subgraph A1["Green Promise Farms"]
+      direction LR
+      a1a["GPF Shopify"] -->|direct connection| a1b(["ShipStation"])
+      a1a -.->|order export| a1c["GPF NAV importer<br/><i>per-order SOs for accounting<br/>+ one bulk SO</i>"] --> a1d[("NAV")]
+    end
+
+    subgraph A2["Walmart"]
+      direction LR
+      a2a["Walmart"] -->|direct connection| a2b(["ShipStation"])
+      a2a -->|Marketplace Connect| a2c["GPF Shopify"] -.->|order export| a2d["GPF NAV importer<br/><i>separate NAV customer</i>"] --> a2e[("NAV")]
+    end
+
+    subgraph A3["Amazon Vendor Central"]
+      direction LR
+      a3a["Amazon"] -->|direct connection| a3b(["ShipStation"])
+      a3a -.->|order download| a3c["GPF NAV importer"] --> a3d[("NAV")]
+    end
+
+    subgraph A4["PCF Sync partners"]
+      direction LR
+      a4a["Partner Shopify stores"] -->|Syncio| a4b["PCF Shopify"] -->|direct connection| a4c(["ShipStation<br/><i>split by partner tag</i>"]) --> a4d["Order Download report<br/><i>SKUs aggregated</i>"] -.->|upload| a4e[("NAV")]
+    end
+
+    subgraph A5["Heritage Hill, Spotswood, Hedge & Hollow"]
+      direction LR
+      a5a["Partner Shopify stores"] -->|ShipStation plugin| a5b(["ShipStation"]) --> a5c["Order Download report<br/><i>SKUs aggregated</i>"] -.->|upload| a5d[("NAV")]
+    end
+
+    subgraph A6["Home Depot"]
+      direction LR
+      a6a["Home Depot"] -->|EDI| a6b["TrueCommerce"] --> a6c["Staging table"] --> a6d(["ShipStation"])
+      a6c --> a6e[("NAV")]
+    end
+
+    subgraph A7["FTP partners: Proven Winners, Almanac, Estabrook's, others"]
+      direction LR
+      a7a["Partner FTP"] --> a7b["Staging table"] -.->|Gemma processes| a7c[("NAV")]
+      a7a -.->|manual import| a7d(["ShipStation"])
+    end
+
+    subgraph A8["Email partners: Mahoneys, Frost Farms, Dietrich"]
+      direction LR
+      a8a["Order file by email"] -.-> a8b["Order sheet pivot<br/><i>SKUs aggregated</i>"] -.->|upload| a8c[("NAV")]
+      a8a -.->|manual import| a8d(["ShipStation"])
+    end
+
+    subgraph A9["Plant Addicts (Proven Winners occasionally)"]
+      direction LR
+      a9a["Orders to FTP"] --> a9b["PA Master<br/><i>intake, changes</i>"] --> a9c["Box Planner<br/><i>one order per box</i>"]
+      a9c -.->|upload by box type| a9d[("NAV")]
+      a9c -.->|import file| a9e(["ShipStation"])
+    end
+  end
+
+  subgraph B["2  Warehouse and shipping (all channels)"]
+    direction LR
+    b1[("NAV sales orders")] --> b2["Warehouse shipment"] --> b3["Wave<br/><i>CAT1 runs as its own wave</i>"]
+    b3 --> b4["Rack sheets printed"]
+    b3 --> b5["SQL package line report<br/><i>package ID = rack</i>"]
+    b6(["ShipStation<br/>awaiting shipment"]) -->|pulls orders| b7["Rack Matcher"]
+    b5 -.->|load per wave| b7
+    b7 --> b8(["ShipStation batches"]) --> b9["Label batch printed"] --> b10["Labels bagged<br/>with rack sheet"]
+    b4 -.-> b10
+    b10 -.-> b11["Shopping racks built<br/>at shipping pad"] --> b12["Carrier pickup<br/><i>FedEx, UPS</i>"]
+    b12 -.-> b13["Invoicing<br/><i>freight + fulfillment lines added<br/>to the bulk SO, posted for AR</i>"]
+  end
+
+  subgraph C["3  Tracking back"]
+    direction TB
+    subgraph C1["GPF, Walmart, Amazon, Heritage Hill group"]
+      direction LR
+      c1a(["ShipStation"]) -->|store connection,<br/>ASN for Amazon| c1b["Channel updated<br/>on label print"]
+    end
+    subgraph C2["PCF Sync partners"]
+      direction LR
+      c2a(["ShipStation"]) --> c2b["PCF Shopify"] -->|Syncio| c2c["Partner stores"]
+    end
+    subgraph C3["Home Depot"]
+      direction LR
+      c3a(["ShipStation"]) --> c3b["TrueCommerce"] --> c3c["Home Depot"]
+    end
+    subgraph C4["Plant Addicts"]
+      direction LR
+      c4a(["ShipStation"]) --> c4b["PA Tracking script<br/><i>Master + daily file</i>"] --> c4c["Drive outbox"] -.->|upload| c4d["PA FTP"]
+    end
+    subgraph C5["Email partners"]
+      direction LR
+      c5a(["ShipStation"]) --> c5b["Tracking email script"] --> c5c["Partner inbox"]
+    end
+    subgraph C6["FTP partners"]
+      direction LR
+      c6a(["ShipStation"]) -.->|export| c6b["Tracking file"] -.->|upload| c6c["Partner FTP"]
+    end
+  end
+
+  A1 ~~~ A2 ~~~ A3 ~~~ A4 ~~~ A5 ~~~ A6 ~~~ A7 ~~~ A8 ~~~ A9
+  C1 ~~~ C2 ~~~ C3 ~~~ C4 ~~~ C5 ~~~ C6
+  A ~~~ B ~~~ C
+
+  classDef ext fill:#eef2f0,stroke:#8a938d,color:#1a1a1a
+  classDef ship fill:#e6efe9,stroke:#186c3f,color:#12372a
+  classDef erp fill:#eceef5,stroke:#5b6b9e,color:#1a2340
+  classDef tool fill:#f6efe4,stroke:#a8752f,color:#3a2c14
+  class a1a,a2a,a2c,a3a,a4a,a4b,a5a,a6a,a6b,a7a,a8a,a9a,c1b,c2b,c2c,c3b,c3c,c4d,c5c,c6c ext
+  class a1b,a2b,a3b,a4c,a5b,a6d,a7d,a8d,a9e,b6,b8,c1a,c2a,c3a,c4a,c5a,c6a ship
+  class a1d,a2e,a3d,a4e,a5d,a6c,a6e,a7b,a7c,a8c,a9d,b1,b2,b3,b4,b5,b13 erp
+  class a1c,a2d,a3c,a4d,a5c,a8b,a9b,a9c,b7,b9,b10,b11,b12,c4b,c4c,c5b,c6b tool

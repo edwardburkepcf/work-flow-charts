@@ -1,0 +1,77 @@
+flowchart TB
+  %% Diagram 2: shared systems, data connections and support tools.
+  %% Solid arrow = automated. Dotted arrow = manual step or handoff.
+
+  subgraph CFGL["Product data and the config sheet"]
+    direction LR
+    cA["NAV item export<br/>monthly"] -.->|paste| cB["AS - Reference & Config<br/>products, partners,<br/>cross refs, CAT1 states"]
+    cC["NAV rack height<br/>email, daily"] --> cB
+    cB --> cD["Read by: Availability Sync,<br/>PA Master, Multipack Splitter,<br/>Order Download, Rack Matcher,<br/>Shipping Invoice Report"]
+  end
+
+  subgraph BOX["Box sizes and packing slips"]
+    direction LR
+    bA["NAV rack height<br/>email, daily"] --> bB["ShipStation<br/>Product Sync"] -.->|review before push| bC["ShipStation<br/>box sizes +<br/>packing slip descriptions"]
+  end
+
+  subgraph INVL["Inventory feeds"]
+    direction LR
+    iA[("NAV inventory")] --> iB["Joe's SQL layer"] --> iX{"Which filter?"}
+    iX -->|Ecomm checkbox<br/>on the item| iC["PCF ecommerce list<br/>emailed to our inbox"] --> iD["Availability Sync<br/>+ overrides tab"] --> iE["Matrixify"] --> iF["GPF Shopify"]
+    iE --> iG["PCF Shopify"] --> iH["Syncio"] --> iI["PCF Sync<br/>partner stores"]
+    iX -->|Ecomm checkbox<br/>on the item| iL["Other partner lists"] --> iM["FTP, email,<br/>or uploaded by hand"]
+    iX -->|Cross Reference table| iJ["Plant Addicts,<br/>Proven Winners lists"] --> iK["Partner FTP"]
+  end
+
+  subgraph WH["Pick, pack, ship"]
+    direction LR
+    wA["Store plugins"] --> wC["ShipStation<br/>order records"]
+    wB["Manual imports"] -.-> wC
+    wD[("NAV wave run")] --> wE["Rack sheets printed<br/>inventory per rack"]
+    wD --> wF["SQL package<br/>line report"]
+    wC -->|pulls orders| wG["Rack Matcher<br/>web app"]
+    wF -.->|load per wave| wG
+    wG -->|matched orders<br/>as batches| wH["ShipStation<br/>batches"]
+    wH -.-> wK["Label batch printed<br/>FedEx, UPS"]
+    wK -.-> wI["Labels bagged with<br/>their rack sheet"]
+    wE -.-> wI
+    wI -.-> wJ["Brought to shipping pad,<br/>shopping racks built"]
+  end
+
+  subgraph BILL["Shipping invoices"]
+    direction LR
+    sA["ShipStation"] --> sB["Shipping Invoice Report<br/>freight by partner,<br/>date range"]
+    sB -.->|match ShipStation orders<br/>to the bulk sales order| sC["Bulk sales order<br/>+ freight total<br/>+ fulfillment lines"]
+    sC -.->|post| sD["AR invoices it"] --> sE[("Posted invoices<br/>in NAV")]
+  end
+
+  subgraph CLM["Damage claims and credits"]
+    direction LR
+    dA["Re:amaze<br/>dfclaims@"] --> dD["Vendor Shipping<br/>Exception tracker"]
+    dB["ShipStation"] --> dD
+    dC["SQL invoice lines<br/>from posted invoices"] --> dD
+    dD -.->|print, hand off| dE["Accounts Receivable"]
+    dF["Carrier portals<br/>Maggie, Jade"]
+  end
+
+  subgraph COMP["Compliance"]
+    direction LR
+    jA["ShipStation"] --> jB["Japanese Beetle<br/>pre-notification"] -.->|email + phyto certs| jC["Western state<br/>ag departments"]
+    jA --> jD["Buxus NY<br/>compliance"] -.-> jE["Survey123"]
+  end
+
+  subgraph LGLL["Plant Addicts vendor feed"]
+    direction LR
+    lA["LGL API"] --> lB["LGL Product Sync"] --> lC["PA BigCommerce"]
+  end
+
+  CFGL ~~~ BOX ~~~ INVL ~~~ WH ~~~ BILL ~~~ CLM ~~~ COMP ~~~ LGLL
+
+  classDef nav fill:#e8eefc,stroke:#3b5bdb,color:#111
+  classDef tool fill:#e6f7ec,stroke:#2f9e44,color:#111
+  classDef plat fill:#fff4e0,stroke:#e8590c,color:#111
+  classDef cfg fill:#fff9db,stroke:#f08c00,color:#111,stroke-width:2px
+  class cA,cC,bA,iA,iB,prA,wD,wE,wF,dC,sE nav
+  class bB,iD,wG,sB,dD,jB,jD,lB tool
+  class bC,iE,iF,iG,iH,prB,prE,prF,prG,wC,wH,sA,dA,dB,dF,jA,lC plat
+  class cB cfg

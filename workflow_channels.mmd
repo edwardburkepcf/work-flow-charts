@@ -1,0 +1,88 @@
+flowchart TB
+  %% Diagram 1: how each channel connects. Inventory out, orders in, tracking back.
+  %% Solid arrow = automated. Dotted arrow = manual step or handoff.
+
+  subgraph GPF["GPF site"]
+    direction LR
+    gA["NAV inventory<br/>Joe SQL list, emailed"] --> gB["Availability Sync"] --> gC["Matrixify"] --> gD["GPF Shopify"]
+    gD -.->|order export| gE["GPF NAV importer<br/>per-order SO + bulk SO"] --> gF[("NAV")]
+    gD --> gG["ShipStation"] --> gH["Tracking to<br/>GPF Shopify"]
+    gD --- gI["CS: Re:amaze<br/>Dodie + PH team"]
+  end
+
+  subgraph WAL["Walmart (GPF brand)"]
+    direction LR
+    wA["GPF Shopify<br/>catalog"] -->|Marketplace Connect| wB["Walmart"] -->|Marketplace Connect| wC["GPF Shopify"]
+    wC -.->|order export,<br/>separate customer| wD["GPF NAV importer"] --> wE[("NAV")]
+    wB --> wF["ShipStation<br/>direct connection"] --> wG["Tracking to Walmart<br/>on label print"]
+    wB --- wH["CS: Gemma in<br/>Seller Center"]
+  end
+
+  subgraph AMZ["Amazon Vendor Central (GPF brand)"]
+    direction LR
+    aA["Daily inventory<br/>file by email"] -.->|upload by hand| aB["Amazon<br/>Vendor Central"]
+    aB -.->|PO download| aC["NAV importer<br/>per-order SO + bulk SO"] --> aD[("NAV")]
+    aB --> aE["ShipStation<br/>direct connection"] --> aF["ASN to Amazon<br/>on label print"]
+    aB --- aG["CS: Amazon<br/>Seller Central move started"]
+  end
+
+  subgraph SYNC["PCF Sync garden centers (~20 Shopify stores)"]
+    direction LR
+    pA["Availability Sync<br/>+ Matrixify"] --> pB["PCF Shopify"] --> pC["Syncio"] --> pD["Partner stores"]
+    pD -->|orders| pE["Syncio"] --> pF["PCF Shopify"] --> pG["ShipStation"]
+    pG --> pH["Order Download<br/>script"] -.->|upload| pI[("NAV")]
+    pF -.->|Shopify API import<br/>Joe, in progress| pI
+    pG --> pJ["Tracking to partner<br/>via Syncio"]
+    pD --- pK["CS: partner<br/>claims: dfclaims@"]
+  end
+
+  subgraph FTP["FTP partners (PW, Almanac, Estabrook's, Weston, Ward's, Classy)"]
+    direction LR
+    fA["NAV inventory<br/>Joe SQL list"] -->|scheduled, Joe| fB["Partner FTP"] --> fC["FTP partners"]
+    fC -->|order file| fD["Our FTP"] --> fE["Staging table"] -.->|Gemma processes| fF[("NAV")]
+    fG["ShipStation"] --> fH["Automated FTP<br/>tracking push"]
+    fG -.-> fI["ShipStation export<br/>to partner FTP"]
+    fC --- fJ["CS: partner<br/>claims: dfclaims@"]
+  end
+
+  subgraph HYB["Heritage Hill, Spotswood (hybrid)"]
+    direction LR
+    hA["NAV inventory<br/>Joe SQL list"] -->|FTP| hB["Heritage Hill,<br/>Spotswood"]
+    hB -->|ShipStation plugin| hC["ShipStation"] -.->|order report| hD["Upload"] -.-> hE[("NAV")]
+    hC --> hF["Tracking to their<br/>Shopify, direct"]
+  end
+
+  subgraph EM["Email partners (Mahoneys, Frost Farms, Dietrich)"]
+    direction LR
+    eA["Availability list"] -.->|email| eB["Email partners"]
+    eB -.->|order file| eC["Order sheet<br/>pivot table"] -.->|aggregated SO upload| eD[("NAV")]
+    eE["ShipStation"] --> eF["Tracking email<br/>script"] --> eB2["Email partners"]
+  end
+
+  subgraph PA["Plant Addicts (owned, run as a partner)"]
+    direction LR
+    paA["NAV inventory<br/>Joe SQL list,<br/>Cross Reference"] -->|FTP| paB["Plant Addicts"]
+    paB -->|orders to FTP| paC["PA Master 2026<br/>intake, changes,<br/>holiday SKUs"] --> paD["Multipack Splitter<br/>boxes + shipment #s"]
+    paD -.->|upload by box type| paE[("NAV")]
+    paD -.->|import file| paF["ShipStation"] --> paG["PA Tracking<br/>script"]
+    paG --> paH["Master Shipments tab"]
+    paG --> paI["Drive outbox<br/>daily file"] -.->|upload| paJ["PA FTP"]
+    paB --- paK["CS: PA team<br/>in Re:amaze"]
+  end
+
+  subgraph HD["Home Depot"]
+    direction LR
+    hdA["Inventory file"] -.->|upload by hand| hdB["Home Depot"]
+    hdB -->|EDI| hdC["TrueCommerce"] --> hdD["Staging table<br/>Joe"] --> hdE[("NAV")]
+  end
+
+  GPF ~~~ WAL ~~~ AMZ ~~~ SYNC ~~~ FTP ~~~ HYB ~~~ EM ~~~ PA ~~~ HD
+
+  classDef nav fill:#e8eefc,stroke:#3b5bdb,color:#111
+  classDef tool fill:#e6f7ec,stroke:#2f9e44,color:#111
+  classDef plat fill:#fff4e0,stroke:#e8590c,color:#111
+  classDef cs fill:#f8f9fa,stroke:#adb5bd,color:#555
+  class gA,gF,wE,aD,pI,fA,fF,fE,hA,hE,eD,paA,paE,hdE,hdD nav
+  class gB,gE,wD,aC,pA,pH,fH,eC,eF,paC,paD,paG,paH tool
+  class gC,gD,gG,wA,wB,wC,wF,aB,aE,pB,pC,pE,pF,pG,fG,hC,eE,paF,hdC plat
+  class gI,wH,aG,pK,fJ,paK cs
